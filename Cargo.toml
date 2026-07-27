@@ -1,0 +1,20 @@
+[package]
+name = "jpm"
+version = "0.4.0-alpha.1"
+edition = "2024"
+rust-version = "1.85"
+description = "A fast, friendly command-line interface for Julia's package manager"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/jeslitt/jpm"
+homepage = "https://github.com/jeslitt/jpm"
+documentation = "https://docs.rs/jpm"
+keywords = ["julia", "package-manager", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

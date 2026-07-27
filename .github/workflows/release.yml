@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate tag
+        shell: bash
+        run: |
+          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+          test "${GITHUB_REF_NAME}" = "v${version}"
+      - run: cargo test --locked
+      - run: cargo package --locked
+
+  build:
+    needs: validate
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar
+          - os: macos-13
+            target: x86_64-apple-darwin
+            archive: tar
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Create tarball
+        if: matrix.archive == 'tar'
+        shell: bash
+        run: |
+          name="jpm-${GITHUB_REF_NAME#v}-${{ matrix.target }}"
+          mkdir "${name}"
+          cp "target/${{ matrix.target }}/release/jpm" README.md LICENSE "${name}/"
+          tar -czf "${name}.tar.gz" "${name}"
+      - name: Create zip
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $name = "jpm-$($env:GITHUB_REF_NAME.TrimStart('v'))-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path $name
+          Copy-Item "target/${{ matrix.target }}/release/jpm.exe", README.md, LICENSE -Destination $name
+          Compress-Archive -Path $name -DestinationPath "$name.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jpm-${{ matrix.target }}
+          path: |
+            jpm-*.tar.gz
+            jpm-*.zip
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: jpm-*
+          merge-multiple: true
+      - name: Create checksums
+        run: sha256sum jpm-*.tar.gz jpm-*.zip > SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            jpm-*.tar.gz
+            jpm-*.zip
+            SHA256SUMS
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
