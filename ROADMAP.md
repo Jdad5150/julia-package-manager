@@ -21,7 +21,7 @@ authoritative.
 
 Prioritize release engineering before adding more features:
 
-- [ ] Create and publish the Git repository with complete package metadata.
+- [x] Create and publish the Git repository with complete package metadata.
 - [x] Run CI on macOS, Linux, and Windows.
 - [x] Test against Julia LTS and the current stable release.
 - [x] Add real Julia integration tests, including paths with spaces.
